@@ -1,0 +1,512 @@
+import type { Farm, User, Row } from "@/types";
+const id = (n: number) =>
+  `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+export const demoFarm: Farm = {
+  id: id(1),
+  name: "Umred Farm",
+  slug: "umred-demo",
+  region: "Umred, Nagpur",
+  currency_code: "INR",
+  timezone: "Asia/Kolkata",
+  version: 1,
+};
+export const demoUser: User = {
+  id: id(2),
+  full_name: "Mira Deshmukh",
+  email: "mira@preview.fieldwork",
+  memberships: [
+    { farm_id: id(1), farm__name: "Umred Farm", role__code: "owner" },
+  ],
+};
+const at = (days: number, hour = 8) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
+};
+const row = (n: number, values: Record<string, unknown>): Row => ({
+  id: id(n),
+  farm: id(1),
+  version: 1,
+  created_at: at(-10),
+  updated_at: at(-1),
+  ...values,
+});
+const polygon = (x: number, y: number, w: number, h: number) => ({
+  type: "Polygon",
+  coordinates: [
+    [
+      [x, y],
+      [x + w, y],
+      [x + w, y + h],
+      [x, y + h],
+      [x, y],
+    ],
+  ],
+});
+export const seed: Record<string, Row[]> = {
+  farms: [demoFarm],
+  units: ["kg", "L", "m2", "acre", "hour", "piece"].map((name, i) =>
+    row(10 + i, {
+      name: ["Kilogram", "Litre", "Square metre", "Acre", "Hour", "Piece"][i],
+      code: name,
+      dimension: ["mass", "volume", "area", "area", "time", "count"][i],
+      to_base_factor: name === "acre" ? "4046.8564" : "1",
+      farm: null,
+    }),
+  ),
+  crops: [
+    row(20, {
+      name: "Brinjal",
+      scientific_name: "Solanum melongena",
+      lifecycle: "annual",
+      default_yield_unit: id(10),
+      farm: null,
+    }),
+    row(21, {
+      name: "Chilli",
+      scientific_name: "Capsicum annuum",
+      lifecycle: "annual",
+      default_yield_unit: id(10),
+      farm: null,
+    }),
+  ],
+  blocks: [
+    row(30, {
+      name: "North block",
+      code: "B-01",
+      area_value: "2",
+      area_unit: id(13),
+      area_m2: "8093.7128",
+      soil_type: "Black cotton",
+      status: "active",
+      geometry: polygon(79.0, 21.0, 0.0009, 0.0007),
+    }),
+    row(31, {
+      name: "Orchard edge",
+      code: "B-02",
+      area_value: "1.2",
+      area_unit: id(13),
+      area_m2: "4856.2277",
+      soil_type: "Loam",
+      status: "active",
+      geometry: polygon(79.001, 21.0, 0.0007, 0.0007),
+    }),
+    row(32, {
+      name: "South block",
+      code: "B-03",
+      area_value: "1.8",
+      area_unit: id(13),
+      area_m2: "7284.3415",
+      soil_type: "Black cotton",
+      status: "active",
+      geometry: polygon(79.0, 20.9993, 0.0009, 0.0006),
+    }),
+    row(33, {
+      name: "Trial plot",
+      code: "B-04",
+      area_value: ".5",
+      area_unit: id(13),
+      area_m2: "2023.4282",
+      soil_type: "Loam",
+      status: "fallow",
+      geometry: polygon(79.001, 20.9993, 0.0007, 0.0006),
+    }),
+  ],
+  seasons: [
+    row(40, {
+      name: "Winter season",
+      kind: "winter",
+      start_date: at(-45).slice(0, 10),
+      end_date: at(120).slice(0, 10),
+      status: "active",
+    }),
+  ],
+  "crop-cycles": [
+    row(50, {
+      name: "Brinjal · North block",
+      code: "BR-01",
+      crop: id(20),
+      season: id(40),
+      status: "active",
+      planned_sowing_date: at(-40).slice(0, 10),
+      expected_harvest_end: at(95).slice(0, 10),
+      expected_yield_qty: "12000",
+      expected_price_per_unit: "22",
+    }),
+    row(51, {
+      name: "Chilli · Orchard edge",
+      code: "CH-01",
+      crop: id(21),
+      season: id(40),
+      status: "active",
+      planned_sowing_date: at(-25).slice(0, 10),
+      expected_harvest_end: at(110).slice(0, 10),
+    }),
+    row(52, {
+      name: "Brinjal · South block",
+      code: "BR-02",
+      crop: id(20),
+      season: id(40),
+      status: "harvesting",
+      planned_sowing_date: at(-85).slice(0, 10),
+      expected_harvest_end: at(30).slice(0, 10),
+    }),
+  ],
+  assets: [
+    row(60, {
+      name: "Urea",
+      code: "UREA",
+      asset_class: "stock",
+      status: "active",
+    }),
+    row(61, {
+      name: "Seed trays",
+      code: "TRAYS",
+      asset_class: "stock",
+      status: "active",
+    }),
+    row(62, {
+      name: "Drip connectors",
+      code: "DRIP",
+      asset_class: "stock",
+      status: "active",
+    }),
+    row(63, {
+      name: "Harvest crates",
+      code: "CRATES",
+      asset_class: "stock",
+      status: "active",
+    }),
+    row(64, {
+      name: "Mahindra tractor",
+      code: "TRACTOR-01",
+      asset_class: "machine",
+      status: "active",
+    }),
+    row(65, {
+      name: "Ramesh",
+      code: "PERSON-01",
+      asset_class: "person",
+      status: "active",
+    }),
+  ],
+  "stock-items": [
+    row(70, {
+      asset: id(60),
+      name: "Urea",
+      stock_kind: "input",
+      base_unit: id(10),
+      on_hand_qty: "82",
+      avg_unit_cost: "30",
+      reorder_level: "25",
+    }),
+    row(71, {
+      asset: id(61),
+      name: "Seed trays",
+      stock_kind: "consumable",
+      base_unit: id(15),
+      on_hand_qty: "14",
+      avg_unit_cost: "18",
+      reorder_level: "20",
+    }),
+    row(72, {
+      asset: id(62),
+      name: "Drip connectors",
+      stock_kind: "consumable",
+      base_unit: id(15),
+      on_hand_qty: "8",
+      avg_unit_cost: "12",
+      reorder_level: "15",
+    }),
+    row(73, {
+      asset: id(63),
+      name: "Harvest crates",
+      stock_kind: "packaging",
+      base_unit: id(15),
+      on_hand_qty: "36",
+      avg_unit_cost: "210",
+      reorder_level: "10",
+    }),
+  ],
+  types: [
+    "crop_nutrition",
+    "water_management",
+    "observation",
+    "harvest",
+    "procurement",
+    "sales",
+    "maintenance",
+    "stock_adjustment",
+  ].map((code, i) =>
+    row(80 + i, {
+      name: [
+        "Crop nutrition",
+        "Water management",
+        "Observation",
+        "Harvest",
+        "Procurement",
+        "Sales",
+        "Maintenance",
+        "Stock adjustment",
+      ][i],
+      code,
+      category: id(90 + i),
+      current_version_no: 1,
+      farm: null,
+    }),
+  ),
+  categories: [
+    "crop_nutrition",
+    "water_management",
+    "observation",
+    "harvest",
+    "procurement",
+    "sales",
+    "maintenance",
+    "stock_adjustment",
+  ].map((code, i) =>
+    row(90 + i, { code, name: code.replace(/_/g, " "), farm: null }),
+  ),
+  events: [
+    row(100, {
+      title: "Nutrition application · North block",
+      event_type: id(80),
+      status: "planned",
+      planned_start: at(0, 9),
+      planned_end: at(0, 11),
+      planned_cost_total: "690",
+      actual_cost_total: "0",
+    }),
+    row(101, {
+      title: "Irrigation check · Orchard edge",
+      event_type: id(81),
+      status: "in_progress",
+      planned_start: at(0, 7),
+      planned_end: at(0, 10),
+      planned_cost_total: "350",
+      actual_cost_total: "0",
+    }),
+    row(102, {
+      title: "Harvest · South block",
+      event_type: id(83),
+      status: "planned",
+      planned_start: at(1, 6),
+      planned_end: at(1, 11),
+      planned_cost_total: "1800",
+      actual_cost_total: "0",
+    }),
+    row(103, {
+      title: "Scout for pest activity",
+      event_type: id(82),
+      status: "planned",
+      planned_start: at(1, 8),
+      planned_end: at(1, 9),
+      planned_cost_total: "200",
+      actual_cost_total: "0",
+    }),
+    row(104, {
+      title: "Repair the south drip line",
+      event_type: id(86),
+      status: "planned",
+      planned_start: at(2, 8),
+      planned_end: at(2, 10),
+      planned_cost_total: "450",
+      actual_cost_total: "0",
+    }),
+    row(105, {
+      title: "Field preparation · North block",
+      event_type: id(80),
+      status: "done",
+      planned_start: at(-3),
+      planned_end: at(-3, 11),
+      planned_cost_total: "2500",
+      actual_cost_total: "2350",
+    }),
+  ],
+  "sub-events": [
+    row(110, {
+      event: id(100),
+      kind: "consume_stock",
+      asset: id(60),
+      planned_qty: "18",
+      actual_qty: null,
+      qty_unit: id(10),
+      status: "reserved",
+    }),
+    row(111, {
+      event: id(100),
+      kind: "use_machine",
+      asset: id(64),
+      planned_qty: "2",
+      qty_unit: id(14),
+      status: "reserved",
+    }),
+    row(112, {
+      event: id(101),
+      kind: "use_labour",
+      asset: id(65),
+      planned_qty: "2",
+      qty_unit: id(14),
+      status: "in_use",
+    }),
+  ],
+  targets: [
+    row(115, {
+      event: id(100),
+      crop_cycle: id(50),
+      block: id(30),
+      area_value: "2",
+      area_unit: id(13),
+      area_m2: "8093.7128",
+      share_fraction: "1",
+    }),
+  ],
+  accounts: [
+    row(120, {
+      name: "Farm bank account",
+      kind: "bank",
+      opening_balance: "85000",
+      opening_date: at(-60).slice(0, 10),
+    }),
+    row(121, {
+      name: "Cash on hand",
+      kind: "cash",
+      opening_balance: "12500",
+      opening_date: at(-60).slice(0, 10),
+    }),
+  ],
+  entries: [
+    row(122, {
+      account: id(120),
+      entry_date: at(-1).slice(0, 10),
+      direction: "out",
+      amount: "3000",
+      status: "cleared",
+      category: id(130),
+    }),
+    row(123, {
+      account: id(121),
+      entry_date: at(-2).slice(0, 10),
+      direction: "in",
+      amount: "9600",
+      status: "cleared",
+      category: id(132),
+    }),
+  ],
+  "ledger-categories": [
+    "asset_purchase",
+    "operating_payment",
+    "sales_receipt",
+    "transfer",
+  ].map((code, i) =>
+    row(130 + i, {
+      code,
+      name: code.replace(/_/g, " "),
+      kind: code,
+      farm: null,
+    }),
+  ),
+  "cost-records": [
+    row(140, {
+      event: id(105),
+      cost_nature: "machine_use",
+      amount: "1800",
+      basis_qty: "3",
+      occurred_on: at(-3).slice(0, 10),
+    }),
+    row(141, {
+      event: id(105),
+      cost_nature: "labour",
+      amount: "550",
+      basis_qty: "5",
+      occurred_on: at(-3).slice(0, 10),
+    }),
+  ],
+  scenarios: [
+    row(150, {
+      name: "Winter planting comparison",
+      season: id(40),
+      status: "draft",
+      description: "Consider next season’s block allocation.",
+    }),
+  ],
+  notifications: [
+    row(160, {
+      title: "Seed trays are below the reorder level",
+      kind: "low_stock",
+      status: "pending",
+      due_at: at(0),
+    }),
+    row(161, {
+      title: "Irrigation check is ready for review",
+      kind: "awaiting_confirmation",
+      status: "pending",
+      due_at: at(0),
+    }),
+  ],
+  roles: [
+    "owner",
+    "manager",
+    "supervisor",
+    "worker",
+    "accountant",
+    "advisor",
+    "viewer",
+  ].map((code, i) =>
+    row(170 + i, { code, name: code.charAt(0).toUpperCase() + code.slice(1) }),
+  ),
+  members: [
+    row(180, {
+      user: id(2),
+      role: id(170),
+      status: "active",
+      joined_at: at(-60),
+    }),
+  ],
+  "purpose-tags": [
+    row(190, { code: "nutrition", name: "Nutrition", farm: null }),
+    row(191, { code: "general", name: "General", farm: null }),
+  ],
+  "product-categories": [
+    row(192, {
+      code: "fertiliser",
+      name: "Fertiliser",
+      is_regulated: false,
+      farm: null,
+    }),
+  ],
+  products: [
+    row(193, {
+      name: "Urea",
+      category: id(192),
+      default_unit: id(10),
+      is_active: true,
+    }),
+  ],
+  "depreciation-policies": [
+    row(194, {
+      code: "units_of_production_hours",
+      name: "Hours of use",
+      strategy_code: "units_of_production_hours",
+      version_no: 1,
+      farm: null,
+    }),
+  ],
+  "stage-models": [
+    row(195, {
+      name: "Brinjal · user days model",
+      crop: id(20),
+      basis: "days",
+      base_temp_c: "10",
+    }),
+  ],
+  "audit-log": [
+    row(196, {
+      command_name: "confirm_event",
+      target_type: "events.event",
+      result: "success",
+      created_at: at(-3),
+    }),
+  ],
+};

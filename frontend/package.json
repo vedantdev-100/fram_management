@@ -1,0 +1,44 @@
+{
+  "name": "fieldwork-farm-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "check:architecture": "node scripts/check-boundaries.mjs",
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,ts,html}\" \"scripts/*.mjs\""
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@tanstack/react-query": "^5.90.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.0",
+    "tailwindcss": "^4.1.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.9.10",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.0",
+    "vitest": "^3.2.0"
+  }
+}

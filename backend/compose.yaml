@@ -1,0 +1,65 @@
+name: farm-management
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings.dev
+    DATABASE_URL: postgresql://farm_app:${FARM_DB_PASSWORD:-farm_local_password}@db:5432/farm_management
+    REDIS_URL: redis://redis:6379/0
+  volumes:
+    - media:/app/media
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: farm_management
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-local_admin_change_me}
+      FARM_DB_PASSWORD: ${FARM_DB_PASSWORD:-farm_local_password}
+    ports: ["127.0.0.1:5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/10-farm.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d farm_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redisdata:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    <<: *app
+    command: ["python", "scripts/migrate_and_seed.py"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+  web:
+    <<: *app
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready/')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  worker:
+    <<: *app
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "--concurrency=2"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  beat:
+    <<: *app
+    command: ["celery", "-A", "config", "beat", "-l", "INFO", "--schedule=/tmp/celerybeat-schedule"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+volumes:
+  pgdata:
+  redisdata:
+  media:
