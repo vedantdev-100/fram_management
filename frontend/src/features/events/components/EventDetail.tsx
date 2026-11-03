@@ -1,3 +1,7 @@
+import {
+  DetailSection,
+  DetailTable,
+} from "@/components/workspace/RecordDetails";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Play, Check, Send, CalendarClock, XCircle } from "lucide-react";
@@ -5,7 +9,7 @@ import type { Row } from "@/types";
 import { api } from "../api";
 import { queryClient, refreshFarmQueries } from "@/api/queryClient";
 import { useWorkspace } from "@/stores/workspace";
-import { Button, Badge, Spinner, ErrorBox, Modal } from "@/components/ui";
+import { Button, Spinner, ErrorBox, Modal } from "@/components/ui";
 import { ReferenceLabel } from "@/components/forms/ReferencePicker";
 import { money, dateTime, humanize } from "@/lib/format";
 import { notify } from "@/stores/toasts";
@@ -52,30 +56,25 @@ export function EventDetail({ record }: { record: Row }) {
           </div>
         ))}
       </div>
-      <div className="detail-grid mb-6">
-        <div>
-          <dt>Status</dt>
-          <dd>
-            <Badge value={state} />
-          </dd>
-        </div>
-        <div>
-          <dt>Planned start</dt>
-          <dd>{dateTime(record.planned_start, farm.timezone)}</dd>
-        </div>
-        <div>
-          <dt>Estimated cost</dt>
-          <dd>{money(record.planned_cost_total, farm.currency_code)}</dd>
-        </div>
-        <div>
-          <dt>Recorded cost</dt>
-          <dd>
-            {state === "done"
-              ? money(record.actual_cost_total, farm.currency_code)
-              : "After confirmation"}
-          </dd>
-        </div>
-      </div>
+      <DetailSection title="Work summary">
+        <DetailTable
+          entries={[
+            ["status", state],
+            ["planned_start", record.planned_start],
+            ["planned_end", record.planned_end],
+            [
+              "estimated_cost",
+              money(record.planned_cost_total, farm.currency_code),
+            ],
+            [
+              "recorded_cost",
+              state === "done"
+                ? money(record.actual_cost_total, farm.currency_code)
+                : "After confirmation",
+            ],
+          ]}
+        />
+      </DetailSection>
       <h3 className="section-heading">Resources and actuals</h3>
       <p className="form-intro">
         Planned quantities are used unless you record a correction. Money and
@@ -86,42 +85,75 @@ export function EventDetail({ record }: { record: Row }) {
       ) : query.isError ? (
         <ErrorBox error={query.error} />
       ) : (
-        <div className="actual-lines">
-          {query.data?.results.map((line) => (
-            <div key={line.id}>
-              <div>
-                <strong>
-                  <ReferenceLabel resource="assets" id={line.asset} />
-                </strong>
-                <small>
-                  {humanize(line.kind)} ·{" "}
-                  <ReferenceLabel resource="units" id={line.qty_unit} />
-                </small>
-              </div>
-              <label>
-                <span>
-                  {state === "in_progress" ? "Actual quantity" : "Quantity"}
-                </span>
-                {state === "in_progress" ? (
-                  <input
-                    type="number"
-                    step="any"
-                    value={
-                      actuals[line.id] ??
-                      String(line.actual_qty ?? line.planned_qty ?? "")
-                    }
-                    onChange={(e) =>
-                      setActuals({ ...actuals, [line.id]: e.target.value })
-                    }
-                  />
-                ) : (
-                  <strong>
-                    {String(line.actual_qty ?? line.planned_qty ?? "—")}
-                  </strong>
-                )}
-              </label>
-            </div>
-          ))}
+        <div>
+          <div
+            className="detail-table-scroll"
+            role="region"
+            aria-label="Work resource quantities"
+            tabIndex={0}
+          >
+            <table className="detail-items-table work-actuals-table">
+              <caption className="sr-only">
+                Resources and actual quantities
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Resource</th>
+                  <th scope="col">Activity</th>
+                  <th scope="col">Unit</th>
+                  <th scope="col">Planned</th>
+                  <th scope="col">Actual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {query.data?.results.map((line, index) => (
+                  <tr key={line.id}>
+                    <th scope="row">
+                      <ReferenceLabel resource="assets" id={line.asset} />
+                    </th>
+                    <td>{humanize(line.kind)}</td>
+                    <td>
+                      <ReferenceLabel resource="units" id={line.qty_unit} />
+                    </td>
+                    <td className="tabular-nums">
+                      {String(line.planned_qty ?? "—")}
+                    </td>
+                    <td>
+                      {state === "in_progress" ? (
+                        <input
+                          aria-label={`Actual quantity for resource ${index + 1}`}
+                          type="number"
+                          step="any"
+                          value={
+                            actuals[line.id] ??
+                            String(line.actual_qty ?? line.planned_qty ?? "")
+                          }
+                          onChange={(e) =>
+                            setActuals({
+                              ...actuals,
+                              [line.id]: e.target.value,
+                            })
+                          }
+                        />
+                      ) : (
+                        <span className="tabular-nums">
+                          {String(
+                            line.actual_qty ??
+                              (state === "done" ? "—" : "Not recorded"),
+                          )}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!query.data?.results.length && (
+            <p className="detail-note muted">
+              No resources recorded for this work.
+            </p>
+          )}
           {query.data?.next && (
             <p className="field-help">
               Only the first 50 lines are shown. Unchanged remaining lines keep

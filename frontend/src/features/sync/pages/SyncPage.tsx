@@ -1,3 +1,4 @@
+import { OfflineDraftsPanel } from "@/offline/OfflineDraftsPanel";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { RefreshCw, CloudDownload } from "lucide-react";
@@ -25,8 +26,9 @@ export default function SyncPage() {
       <PageHeader
         eyebrow="KEEP RECORDS TOGETHER"
         title="Offline sync"
-        description="Check changes and submit batches captured outside the workspace."
+        description="Review local offline drafts, check server changes and submit saved event batches."
       />
+      <OfflineDraftsPanel />
       <div className="panel p-6 mb-6">
         <span className="empty-icon mb-4">
           <CloudDownload size={24} />

@@ -1,3 +1,6 @@
+import { restorableDraft } from "@/offline/drafts";
+import { useOfflineForm } from "@/offline/useOfflineForm";
+import { OfflineFormNotice } from "@/offline/OfflineFormNotice";
 import { uuid } from "@/lib/uuid";
 import { useEffect } from "react";
 import { useOptions } from "@/components/forms/ReferencePicker";
@@ -39,6 +42,7 @@ export function CommandForm({
         }
       : {}),
     client_uuid: uuid(),
+    ...restorableDraft("command", command.key)?.values,
   }));
   const [localError, setLocalError] = useState<unknown>(null);
   const primary = command.fields.find(
@@ -53,25 +57,39 @@ export function CommandForm({
   const latest = options.data?.rows.find((r) => r.id === selected);
   useEffect(() => {
     if (
+      !restorableDraft("command", command.key) &&
       latest?.version !== undefined &&
       command.fields.some((f) => f.name === "version")
     )
       setValues((v) => ({ ...v, version: latest.version }));
   }, [latest?.version, selected, command.fields]);
   const mutation = useMutation({
+    networkMode: "always",
     mutationFn: (v: Record<string, unknown>) =>
       api.command(farm, command.key, v),
-    onSuccess: async (data) => {
-      await refreshFarmQueries();
+    onSuccess: (data) => {
+      offline.complete();
+      void refreshFarmQueries();
       notify("Action completed");
       if (onResult) onResult(data);
       else onClose();
     },
   });
+  const offline = useOfflineForm({
+    kind: "command",
+    key: command.key,
+    label: command.label,
+    values,
+    error: mutation.error,
+  });
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        if (offline.browserOffline) {
+          offline.save();
+          return;
+        }
         try {
           const clean = cleanValues(command.fields, values);
           if (command.idempotent) clean.client_uuid = values.client_uuid;
@@ -92,6 +110,7 @@ export function CommandForm({
         }
       }}
     >
+      <OfflineFormNotice state={offline} />
       <p className="form-intro">{command.description}</p>
       <fieldset disabled={mutation.isPending}>
         <Fields fields={command.fields} values={values} onChange={setValues} />
@@ -108,7 +127,7 @@ export function CommandForm({
           Cancel
         </Button>
         <Button type="submit" loading={mutation.isPending}>
-          {command.label}
+          {offline.browserOffline ? "Save offline" : command.label}
         </Button>
       </footer>
     </form>

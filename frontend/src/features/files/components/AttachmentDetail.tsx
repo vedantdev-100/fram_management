@@ -1,3 +1,7 @@
+import {
+  DetailSection,
+  DetailTable,
+} from "@/components/workspace/RecordDetails";
 import type { Row } from "@/types";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -8,20 +12,16 @@ export function AttachmentDetail({ record }: { record: Row }) {
   const farm = useWorkspace((s) => s.farm)!;
   return (
     <div>
-      <dl className="detail-grid">
-        <div>
-          <dt>Document</dt>
-          <dd>{String(record.original_name)}</dd>
-        </div>
-        <div>
-          <dt>Kind</dt>
-          <dd>{String(record.kind)}</dd>
-        </div>
-        <div>
-          <dt>File size</dt>
-          <dd>{Math.ceil(Number(record.size) / 1024)} KB</dd>
-        </div>
-      </dl>
+      <DetailSection title="Document details">
+        <DetailTable
+          entries={[
+            ["document", record.original_name],
+            ["kind", record.kind],
+            ["file_size", `${Math.ceil(Number(record.size) / 1024)} KB`],
+            ["created_at", record.created_at],
+          ]}
+        />
+      </DetailSection>
       <div className="form-footer">
         <Button
           onClick={() =>

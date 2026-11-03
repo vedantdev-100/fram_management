@@ -37,6 +37,7 @@ export function useRecord(
 export function useSaveRecord(resource: string, api: ModuleApi) {
   const farm = useWorkspace((s) => s.farm?.id) || "";
   return useMutation({
+    networkMode: "always",
     mutationFn: ({
       id,
       values,
@@ -47,8 +48,8 @@ export function useSaveRecord(resource: string, api: ModuleApi) {
       id
         ? api.patch(farm, resource, id, values)
         : api.create(farm, resource, values),
-    onSuccess: async () => {
-      await refreshFarmQueries();
+    onSuccess: () => {
+      void refreshFarmQueries();
       notify("Record saved");
     },
   });

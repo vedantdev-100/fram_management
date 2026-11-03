@@ -1,3 +1,4 @@
+import { OfflineDraftAccess } from "@/offline/OfflineDraftsPanel";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
@@ -16,8 +17,12 @@ import {
   Settings,
   Search,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
   LogOut,
+  Moon,
+  Sun,
   ShieldCheck,
   FlaskConical,
   History,
@@ -26,12 +31,16 @@ import {
 } from "lucide-react";
 import { Brand } from "@/features/auth";
 import { FarmSwitcher } from "@/features/farms";
+import { useTheme } from "@/stores/theme";
+import { useRef } from "react";
 import { useSession } from "@/stores/session";
 import { useWorkspace } from "@/stores/workspace";
 import { API_BASE } from "@/api/client";
 import { queryClient } from "@/api/queryClient";
 import { Button } from "@/components/ui";
 import { initials } from "@/lib/format";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { SetupGuide } from "./SetupGuide";
 import { GlobalSearch } from "./GlobalSearch";
 const groups: { label: string; items: [string, string, LucideIcon][] }[] = [
   {
@@ -67,11 +76,24 @@ const groups: { label: string; items: [string, string, LucideIcon][] }[] = [
   },
 ];
 export function Shell() {
+  const theme = useTheme((s) => s.theme);
+  const toggleTheme = useTheme((s) => s.toggle);
+  const menuRef = useRef<HTMLDivElement>(null);
   const user = useSession((s) => s.user);
   const mode = useSession((s) => s.mode);
+  const compact = useMediaQuery("(max-width: 959px)");
+  const collapsed = useWorkspace((s) => s.sidebarCollapsed);
   const open = useWorkspace((s) => s.sidebarOpen);
   const [search, setSearch] = useState(false);
   const [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [menu]);
   const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
   useEffect(() => {
@@ -93,14 +115,14 @@ export function Shell() {
     return () => document.removeEventListener("keydown", handler);
   }, []);
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    if (!open) return;
+    document.body.style.overflow = open && compact ? "hidden" : "";
+    if (!open || !compact) return;
     const previous = document.activeElement as HTMLElement;
     const aside = document.getElementById("main-navigation")!;
     const focusable = () =>
-      Array.from(aside.querySelectorAll<HTMLElement>("button,a,select")).filter(
-        (e) => !e.hasAttribute("disabled") && e.offsetParent !== null,
-      );
+      Array.from(
+        aside.querySelectorAll<HTMLElement>("button,a,select,input"),
+      ).filter((e) => !e.hasAttribute("disabled") && e.offsetParent !== null);
     focusable()[0]?.focus();
     const trap = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
@@ -121,7 +143,7 @@ export function Shell() {
       document.removeEventListener("keydown", trap);
       previous?.focus();
     };
-  }, [open]);
+  }, [open, compact]);
   async function signOut() {
     setLoggingOut(true);
     const { accessToken, refreshToken } = useSession.getState();
@@ -149,11 +171,11 @@ export function Shell() {
       .flatMap((g) => g.items)
       .find((i) => i[0] === location.pathname)?.[1] || "Farm workspace";
   return (
-    <div className="app-shell">
+    <div className={"app-shell " + (collapsed ? "sidebar-collapsed" : "")}>
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>
-      {open && (
+      {open && compact && (
         <button
           className="sidebar-backdrop"
           aria-label="Close navigation"
@@ -164,17 +186,42 @@ export function Shell() {
         id="main-navigation"
         className={"sidebar " + (open ? "sidebar-open" : "")}
         aria-label="Main navigation"
+        inert={compact && !open}
       >
         <div className="sidebar-brand">
           <Link to="/" aria-label="Fieldwork overview">
             <Brand />
           </Link>
           <button
-            className="icon-button mobile-only"
-            aria-label="Close navigation"
-            onClick={() => useWorkspace.getState().setSidebar(false)}
+            className="icon-button sidebar-toggle"
+            aria-label={
+              compact
+                ? "Close navigation"
+                : collapsed
+                  ? "Expand navigation"
+                  : "Collapse navigation"
+            }
+            aria-expanded={compact ? open : !collapsed}
+            aria-controls="main-navigation"
+            title={
+              compact
+                ? "Close navigation"
+                : collapsed
+                  ? "Expand navigation"
+                  : "Collapse navigation"
+            }
+            onClick={() => {
+              if (compact) useWorkspace.getState().setSidebar(false);
+              else useWorkspace.getState().toggleSidebarCollapsed();
+            }}
           >
-            <X size={20} />
+            {compact ? (
+              <X size={20} />
+            ) : collapsed ? (
+              <PanelLeftOpen size={19} />
+            ) : (
+              <PanelLeftClose size={19} />
+            )}
           </button>
         </div>
         <FarmSwitcher />
@@ -187,46 +234,63 @@ export function Shell() {
                   key={path}
                   to={path}
                   end={path === "/"}
+                  aria-label={label}
+                  title={label}
                   className={({ isActive }) =>
                     isActive ? "nav-item active" : "nav-item"
                   }
                 >
                   <Icon size={18} />
-                  <span>{label}</span>
+                  <span className="nav-label">{label}</span>
                 </NavLink>
               ))}
             </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-hint">
+          <div
+            className="sidebar-hint"
+            title={
+              mode === "demo" ? "Preview workspace" : "Live farm workspace"
+            }
+          >
             <span className="hint-dot" />
             <span>
               {mode === "demo" ? "Preview workspace" : "Live farm workspace"}
             </span>
           </div>
-          <Link to="/settings" className="sidebar-settings">
+          <Link
+            to="/settings"
+            className="sidebar-settings"
+            aria-label="Workspace preferences"
+            title="Workspace preferences"
+          >
             <Settings size={16} />
-            Workspace preferences
+            <span className="nav-label">Workspace preferences</span>
           </Link>
         </div>
       </aside>
-      <div className="main-shell" inert={open}>
+      <div className="main-shell" inert={open && compact}>
         <header className="topbar">
           <div className="topbar-left">
-            <button
-              className="icon-button mobile-only"
-              aria-label="Open navigation"
-              aria-expanded={open}
-              onClick={() => useWorkspace.getState().setSidebar(true)}
-            >
-              <Menu size={22} />
-            </button>
+            {compact && (
+              <button
+                className="icon-button"
+                aria-label="Open navigation"
+                aria-expanded={open}
+                style={{ visibility: open ? "hidden" : "visible" }}
+                aria-controls="main-navigation"
+                onClick={() => useWorkspace.getState().setSidebar(true)}
+              >
+                <Menu size={22} />
+              </button>
+            )}
             <span className="breadcrumb">
               Workspace <span>/</span> <strong>{page}</strong>
             </span>
           </div>
           <div className="topbar-actions">
+            <OfflineDraftAccess />
             <button
               className="header-search"
               onClick={() => setSearch(true)}
@@ -243,7 +307,7 @@ export function Shell() {
             >
               <Bell size={19} />
             </Link>
-            <div className="user-menu-wrap">
+            <div className="user-menu-wrap" ref={menuRef}>
               <button
                 className="user-trigger"
                 aria-label="Open user menu"
@@ -263,6 +327,19 @@ export function Shell() {
                     <Settings size={16} />
                     Team & settings
                   </Link>
+                  <button
+                    className="theme-toggle"
+                    role="switch"
+                    aria-label="Dark mode"
+                    aria-checked={theme === "dark"}
+                    onClick={toggleTheme}
+                  >
+                    {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
+                    <span>Dark mode</span>
+                    <span className="theme-switch" aria-hidden="true">
+                      <span />
+                    </span>
+                  </button>
                   <button disabled={loggingOut} onClick={signOut}>
                     <LogOut size={16} />
                     {loggingOut ? "Signing out…" : "Sign out"}
@@ -286,6 +363,7 @@ export function Shell() {
           </div>
         )}
         <main id="main-content" className="main-content" tabIndex={-1}>
+          <SetupGuide key={location.pathname} pathname={location.pathname} />
           <Outlet />
         </main>
         <footer className="workspace-footer">

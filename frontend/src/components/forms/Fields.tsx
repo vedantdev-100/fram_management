@@ -1,3 +1,5 @@
+import { InfoHint } from "@/components/InfoHint";
+import { fieldHelp } from "@/lib/fieldHelp";
 import { initialValues } from "@/lib/forms";
 import { useId } from "react";
 import { Plus, X } from "lucide-react";
@@ -55,7 +57,10 @@ function FieldInput({
     return (
       <section className="field-group form-span">
         <div className="field-group-heading">
-          <h3>{f.label}</h3>
+          <div className="field-label-row">
+            <h3>{f.label}</h3>
+            <InfoHint label={f.label} description={fieldHelp(f)} />
+          </div>
           <Button
             variant="secondary"
             onClick={() => onChange([...rows, initialValues(f.fields || [])])}
@@ -98,7 +103,10 @@ function FieldInput({
   if (f.type === "object")
     return (
       <section className="field-group form-span">
-        <h3>{f.label}</h3>
+        <div className="field-label-row">
+          <h3>{f.label}</h3>
+          <InfoHint label={f.label} description={fieldHelp(f)} />
+        </div>
         <Fields
           fields={f.fields || []}
           values={(value || {}) as Record<string, unknown>}
@@ -123,18 +131,21 @@ function FieldInput({
     );
   else if (f.type === "boolean")
     return (
-      <label className="checkbox-field" htmlFor={id}>
-        <input
-          id={id}
-          type="checkbox"
-          checked={Boolean(value ?? f.default ?? false)}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span>
-          {f.label}
-          {f.help && <small>{f.help}</small>}
-        </span>
-      </label>
+      <div className="checkbox-help-row">
+        <label className="checkbox-field" htmlFor={id}>
+          <input
+            id={id}
+            type="checkbox"
+            checked={Boolean(value ?? f.default ?? false)}
+            onChange={(e) => onChange(e.target.checked)}
+          />
+          <span>
+            {f.label}
+            {f.help && <small>{f.help}</small>}
+          </span>
+        </label>
+        <InfoHint label={f.label} description={fieldHelp(f)} />
+      </div>
     );
   else if (f.type === "select")
     input = (
@@ -187,15 +198,18 @@ function FieldInput({
         "field " + (["textarea", "json"].includes(f.type) ? "form-span" : "")
       }
     >
-      <label htmlFor={id}>
-        {f.label}
-        {f.required && (
-          <span className="required" aria-label="required">
-            {" "}
-            *
-          </span>
-        )}
-      </label>
+      <div className="field-label-row">
+        <label htmlFor={id}>
+          {f.label}
+          {f.required && (
+            <span className="required" aria-label="required">
+              {" "}
+              *
+            </span>
+          )}
+        </label>
+        <InfoHint label={f.label} description={fieldHelp(f)} />
+      </div>
       {input}
       {f.help && <p className="field-help">{f.help}</p>}
     </div>

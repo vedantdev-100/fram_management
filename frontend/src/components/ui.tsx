@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { headingHelp } from "@/lib/fieldHelp";
+import { InfoHint } from "./InfoHint";
+import { useEffect, useRef, useId } from "react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import {
   AlertCircle,
@@ -163,6 +165,8 @@ export function Modal({
   busy?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
   useEffect(() => {
     const d = ref.current;
     const previous = document.activeElement as HTMLElement;
@@ -180,12 +184,22 @@ export function Modal({
         e.preventDefault();
         if (!busy) onClose();
       }}
-      aria-labelledby="dialog-title"
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
     >
       <div className="modal-header">
         <div>
-          <h2 id="dialog-title">{title}</h2>
-          {description && <p>{description}</p>}
+          <div className="heading-help-row">
+            <h2 id={titleId}>{title}</h2>
+            <InfoHint
+              label={title}
+              description={
+                description ||
+                "Complete the fields marked with an asterisk. Use the info buttons beside individual fields for explanations. Changes are applied only when you submit the form or confirm an action."
+              }
+            />
+          </div>
+          {description && <p id={descriptionId}>{description}</p>}
         </div>
         <button
           className="icon-button"
@@ -241,7 +255,13 @@ export function PageHeader({
     <header className="page-header">
       <div>
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1>{title}</h1>
+        <div className="heading-help-row">
+          <h1>{title}</h1>
+          <InfoHint
+            label={title}
+            description={headingHelp(title, description)}
+          />
+        </div>
         <p>{description}</p>
       </div>
       <div className="page-actions">{actions}</div>
@@ -263,7 +283,15 @@ export function Panel({
     <section className="panel">
       <header className="panel-header">
         <div>
-          <h2>{title}</h2>
+          <div className="heading-help-row">
+            <h2>{title}</h2>
+            {subtitle && (
+              <InfoHint
+                label={title}
+                description={headingHelp(title, subtitle)}
+              />
+            )}
+          </div>
           {subtitle && <p>{subtitle}</p>}
         </div>
         {action}

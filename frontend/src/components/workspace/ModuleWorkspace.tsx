@@ -1,3 +1,6 @@
+import { ownedDrafts } from "@/offline/drafts";
+import { ResourceTabs } from "./ResourceTabs";
+import { useId } from "react";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -25,9 +28,10 @@ import {
   Modal,
 } from "@/components/ui";
 import { RecordForm } from "@/components/forms/RecordForm";
-import { DataTable, Value } from "./DataTable";
+import { RecordDetails } from "./RecordDetails";
+import { DataTable } from "./DataTable";
 import { CommandForm } from "./CommandForm";
-import { humanize, labelFor } from "@/lib/format";
+import { labelFor } from "@/lib/format";
 interface Props {
   title: string;
   description: string;
@@ -50,6 +54,7 @@ export function ModuleWorkspace({
   renderDetail,
   toolbar,
 }: Props) {
+  const tabId = useId();
   const [params, setParams] = useSearchParams();
   const resource =
     resources.find((r) => r.key === params.get("tab")) || resources[0];
@@ -65,6 +70,23 @@ export function ModuleWorkspace({
     const action = params.get("action");
     if (action) setCommand(commands.find((c) => c.key === action) || null);
   }, [params, commands]);
+  useEffect(() => {
+    const draft = ownedDrafts().find((d) => d.id === params.get("draft"));
+    if (draft?.kind === "record" && draft.key === resource.key) {
+      if (draft.recordId) {
+        setDetailId(draft.recordId);
+        setEdit(true);
+      } else setShowCreate(true);
+    }
+  }, [params, resource.key]);
+  const clearDraftRoute = () => {
+    if (!params.has("draft")) return;
+    const next = new URLSearchParams(params);
+    next.delete("draft");
+    next.delete("action");
+    next.delete("record");
+    setParams(next, { replace: true });
+  };
   const query = useRecords(resource.key, {}, api);
   const save = useSaveRecord(resource.key, api);
   const detail = useRecord(resource.key, detailId, api);
@@ -132,26 +154,26 @@ export function ModuleWorkspace({
         }
       />
       {toolbar}
-      <div
-        className="resource-tabs"
-        role="navigation"
-        aria-label={`${title} sections`}
+      <ResourceTabs
+        id={tabId}
+        title={title}
+        resources={resources}
+        active={resource.key}
+        onSelect={(key) => {
+          setParams({ tab: key });
+          setSearch("");
+          setDetailId(undefined);
+          setEdit(false);
+        }}
+      />
+      <section
+        key={resource.key}
+        className="panel resource-tab-panel"
+        id={`${tabId}-panel`}
+        role="tabpanel"
+        aria-labelledby={`${tabId}-tab-${resource.key}`}
+        tabIndex={0}
       >
-        {resources.map((r) => (
-          <button
-            key={r.key}
-            className={r.key === resource.key ? "active" : ""}
-            onClick={() => {
-              setParams({ tab: r.key });
-              setSearch("");
-              setDetailId(undefined);
-            }}
-          >
-            {r.title}
-          </button>
-        ))}
-      </div>
-      <section className="panel">
         <div className="table-toolbar">
           <div className="search-input">
             <Search size={17} />
@@ -244,19 +266,24 @@ export function ModuleWorkspace({
       {showCreate && (
         <Modal
           title={`Add ${resource.title.toLowerCase().replace(/s$/, "")}`}
-          onClose={() => setShowCreate(false)}
+          onClose={() => {
+            setShowCreate(false);
+            clearDraftRoute();
+          }}
           wide
           busy={save.isPending}
         >
           <RecordForm
             resource={resource}
-            onSave={(v) =>
-              save.mutate(
-                { values: v },
-                { onSuccess: () => setShowCreate(false) },
-              )
-            }
-            onClose={() => setShowCreate(false)}
+            onSave={async (v) => {
+              await save.mutateAsync({ values: v });
+              setShowCreate(false);
+              clearDraftRoute();
+            }}
+            onClose={() => {
+              setShowCreate(false);
+              clearDraftRoute();
+            }}
             pending={save.isPending}
             error={save.error}
           />
@@ -268,8 +295,14 @@ export function ModuleWorkspace({
           onClose={() => {
             setDetailId(undefined);
             setEdit(false);
+            clearDraftRoute();
           }}
           wide
+          description={
+            edit
+              ? "Update the record details below."
+              : "Review the record, related details and history."
+          }
           busy={save.isPending}
         >
           {detail.isLoading ? (
@@ -279,7 +312,7 @@ export function ModuleWorkspace({
           ) : (
             current && (
               <>
-                {renderDetail?.(current, resource.key) ? (
+                {!edit && renderDetail?.(current, resource.key) ? (
                   renderDetail(current, resource.key)
                 ) : edit ? (
                   <RecordForm
@@ -287,49 +320,16 @@ export function ModuleWorkspace({
                     record={current}
                     pending={save.isPending}
                     error={save.error}
-                    onSave={(v) =>
-                      save.mutate(
-                        { id: current.id, values: v },
-                        { onSuccess: () => setEdit(false) },
-                      )
-                    }
+                    onSave={async (v) => {
+                      await save.mutateAsync({ id: current.id, values: v });
+                      setEdit(false);
+                      clearDraftRoute();
+                    }}
                     onClose={() => setEdit(false)}
                   />
                 ) : (
                   <>
-                    <div className="detail-grid">
-                      {Object.entries(current)
-                        .filter(
-                          ([k]) =>
-                            ![
-                              "id",
-                              "farm",
-                              "created_by",
-                              "updated_by",
-                              "version",
-                              "created_at",
-                              "updated_at",
-                              "payload",
-                              "before",
-                              "after",
-                            ].includes(k),
-                        )
-                        .map(([k, value]) => (
-                          <div key={k}>
-                            <dt>{humanize(k)}</dt>
-                            <dd>
-                              <Value
-                                column={k}
-                                value={value}
-                                relation={resource.relations[k]}
-                              />
-                            </dd>
-                          </div>
-                        ))}
-                    </div>
-                    <p className="record-meta">
-                      Record version {current.version ?? "—"}
-                    </p>
+                    <RecordDetails record={current} resource={resource} />
                     <div className="form-footer">
                       {resource.editable &&
                         !resource.versioned &&
@@ -352,13 +352,24 @@ export function ModuleWorkspace({
         </Modal>
       )}
       {command && (
-        <Modal title={command.label} onClose={() => setCommand(null)} wide>
+        <Modal
+          title={command.label}
+          onClose={() => {
+            setCommand(null);
+            clearDraftRoute();
+          }}
+          wide
+        >
           <CommandForm
             command={command}
             api={api}
-            onClose={() => setCommand(null)}
+            onClose={() => {
+              setCommand(null);
+              clearDraftRoute();
+            }}
             onResult={(data) => {
               setCommand(null);
+              clearDraftRoute();
               setResult(data);
             }}
           />
@@ -391,31 +402,7 @@ function Result({ value }: { value: unknown }) {
       </div>
     );
   if (typeof value === "object") {
-    const row = value as Record<string, unknown>;
-    return (
-      <dl className="detail-grid">
-        {Object.entries(row)
-          .filter(
-            ([k]) =>
-              ![
-                "id",
-                "farm",
-                "created_by",
-                "updated_by",
-                "request_hash",
-              ].includes(k),
-          )
-          .slice(0, 20)
-          .map(([k, v]) => (
-            <div key={k}>
-              <dt>{humanize(k)}</dt>
-              <dd>
-                <Value column={k} value={v} />
-              </dd>
-            </div>
-          ))}
-      </dl>
-    );
+    return <RecordDetails record={value as Row} />;
   }
   return <p>{String(value)}</p>;
 }
