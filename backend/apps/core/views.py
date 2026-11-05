@@ -220,6 +220,7 @@ class CommandView(APIView):
             ),
             "compute_metrics": lambda: workbench.compute_metrics(ctx, d["scenario_id"]),
             "adopt_scenario": lambda: workbench.adopt_scenario(ctx, d["scenario_id"]),
+            "remove_member": lambda: identity.remove_member(ctx, d["member_id"]),
             "invite": lambda: identity.invite(ctx, d["email"], d["role_id"]),
             "change_member": lambda: identity.change_member(
                 ctx, d["member_id"], d.get("role_id"), d.get("status")

@@ -82,6 +82,18 @@ class ModelSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         value = super().to_representation(instance)
         ctx = self.context.get("ctx")
+        if instance._meta.label_lower == "identity.membership":
+            value["member_name"] = instance.user.full_name or instance.user.email
+            value["member_email"] = instance.user.email
+        if instance._meta.label_lower == "identity.invitation":
+            value["invitation_code"] = None
+            if ctx and "identity.invitation.create" in ctx.permissions and not instance.accepted_at:
+                from apps.identity.services import invitation_code
+                from django.utils import timezone
+                import hashlib, secrets
+                token = invitation_code(instance)
+                if instance.expires_at > timezone.now() and secrets.compare_digest(instance.token_hash, hashlib.sha256(token.encode()).hexdigest()):
+                    value["invitation_code"] = token
         if ctx and not ctx.system:
             financial = (
                 "cost",

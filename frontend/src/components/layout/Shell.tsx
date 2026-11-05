@@ -1,3 +1,5 @@
+import { usePermissions } from "@/hooks/usePermissions";
+import { EmptyState } from "@/components/ui";
 import { OfflineDraftAccess } from "@/offline/OfflineDraftsPanel";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -76,6 +78,7 @@ const groups: { label: string; items: [string, string, LucideIcon][] }[] = [
   },
 ];
 export function Shell() {
+  const access = usePermissions();
   const theme = useTheme((s) => s.theme);
   const toggleTheme = useTheme((s) => s.toggle);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -84,6 +87,7 @@ export function Shell() {
   const compact = useMediaQuery("(max-width: 959px)");
   const collapsed = useWorkspace((s) => s.sidebarCollapsed);
   const open = useWorkspace((s) => s.sidebarOpen);
+  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState(false);
   const [menu, setMenu] = useState(false);
   useEffect(() => {
@@ -226,26 +230,52 @@ export function Shell() {
         </div>
         <FarmSwitcher />
         <nav>
-          {groups.map((g) => (
-            <div className="nav-group" key={g.label}>
-              <span className="nav-group-label">{g.label}</span>
-              {g.items.map(([path, label, Icon]) => (
-                <NavLink
-                  key={path}
-                  to={path}
-                  end={path === "/"}
-                  aria-label={label}
-                  title={label}
-                  className={({ isActive }) =>
-                    isActive ? "nav-item active" : "nav-item"
+          {groups
+            .filter((g) => g.items.some(([path]) => access.canPage(path)))
+            .map((g) => (
+              <div className="nav-group" key={g.label}>
+                <button
+                  type="button"
+                  className="nav-group-label nav-section-toggle"
+                  aria-expanded={
+                    collapsed && !compact ? true : !closedGroups[g.label]
+                  }
+                  aria-controls={`nav-${g.label.replaceAll(" ", "-")}`}
+                  onClick={() =>
+                    setClosedGroups((v) => ({ ...v, [g.label]: !v[g.label] }))
                   }
                 >
-                  <Icon size={18} />
-                  <span className="nav-label">{label}</span>
-                </NavLink>
-              ))}
-            </div>
-          ))}
+                  {g.label}
+                  <ChevronDown
+                    size={14}
+                    className={closedGroups[g.label] ? "" : "is-open"}
+                  />
+                </button>
+                <div
+                  id={`nav-${g.label.replaceAll(" ", "-")}`}
+                  className="nav-section-items"
+                  hidden={!(collapsed && !compact) && !!closedGroups[g.label]}
+                >
+                  {g.items
+                    .filter(([path]) => access.canPage(path))
+                    .map(([path, label, Icon]) => (
+                      <NavLink
+                        key={path}
+                        to={path}
+                        end={path === "/"}
+                        aria-label={label}
+                        title={label}
+                        className={({ isActive }) =>
+                          isActive ? "nav-item active" : "nav-item"
+                        }
+                      >
+                        <Icon size={18} />
+                        <span className="nav-label">{label}</span>
+                      </NavLink>
+                    ))}
+                </div>
+              </div>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div
@@ -259,15 +289,17 @@ export function Shell() {
               {mode === "demo" ? "Preview workspace" : "Live farm workspace"}
             </span>
           </div>
-          <Link
-            to="/settings"
-            className="sidebar-settings"
-            aria-label="Workspace preferences"
-            title="Workspace preferences"
-          >
-            <Settings size={16} />
-            <span className="nav-label">Workspace preferences</span>
-          </Link>
+          {access.canPage("/settings") && (
+            <Link
+              to="/settings"
+              className="sidebar-settings"
+              aria-label="Workspace preferences"
+              title="Workspace preferences"
+            >
+              <Settings size={16} />
+              <span className="nav-label">Workspace preferences</span>
+            </Link>
+          )}
         </div>
       </aside>
       <div className="main-shell" inert={open && compact}>
@@ -323,10 +355,13 @@ export function Shell() {
                 <div className="user-menu">
                   <strong>{user?.full_name}</strong>
                   <small>{user?.email}</small>
-                  <Link to="/settings">
-                    <Settings size={16} />
-                    Team & settings
-                  </Link>
+                  <small>Role: {access.data?.role.name || "Farm member"}</small>
+                  {access.canPage("/settings") && (
+                    <Link to="/settings">
+                      <Settings size={16} />
+                      Team & settings
+                    </Link>
+                  )}
                   <button
                     className="theme-toggle"
                     role="switch"
@@ -363,8 +398,23 @@ export function Shell() {
           </div>
         )}
         <main id="main-content" className="main-content" tabIndex={-1}>
-          <SetupGuide key={location.pathname} pathname={location.pathname} />
-          <Outlet />
+          {access.canPage(location.pathname) ? (
+            <>
+              {(access.has("identity.farm.create") ||
+                access.has("events.event.plan")) && (
+                <SetupGuide
+                  key={location.pathname}
+                  pathname={location.pathname}
+                />
+              )}
+              <Outlet />
+            </>
+          ) : (
+            <EmptyState
+              title="This section is outside your role"
+              description="Your farm administrator controls access to this section. Use the pages available in your navigation."
+            />
+          )}
         </main>
         <footer className="workspace-footer">
           <span>Fieldwork · One farm, a clearer picture.</span>

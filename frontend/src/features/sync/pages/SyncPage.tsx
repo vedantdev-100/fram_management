@@ -1,3 +1,4 @@
+import { usePermissions } from "@/hooks/usePermissions";
 import { OfflineDraftsPanel } from "@/offline/OfflineDraftsPanel";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import { useSyncState } from "../hooks/useSync";
 import { BatchUpload } from "../components/BatchUpload";
 import { refreshFarmQueries } from "@/api/queryClient";
 export default function SyncPage() {
+  const access = usePermissions();
   const farm = useWorkspace((s) => s.farm)!;
   const cursor = useSyncState((s) => s.cursors[farm.id]);
   const [count, setCount] = useState<number | null>(null);
@@ -60,7 +62,7 @@ export default function SyncPage() {
         )}
         {mutation.error && <ErrorBox error={mutation.error} />}
       </div>
-      <BatchUpload />
+      {access.canCommand("create_event") && <BatchUpload />}
     </div>
   );
 }

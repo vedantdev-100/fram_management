@@ -1,3 +1,4 @@
+import { Select } from "@/components/forms/Select";
 import { InfoHint } from "@/components/InfoHint";
 import { fieldHelp } from "@/lib/fieldHelp";
 import { initialValues } from "@/lib/forms";
@@ -149,7 +150,7 @@ function FieldInput({
     );
   else if (f.type === "select")
     input = (
-      <select
+      <Select
         id={id}
         value={String(value ?? "")}
         required={f.required}
@@ -161,7 +162,7 @@ function FieldInput({
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     );
   else if (f.type === "textarea" || f.type === "json")
     input = (

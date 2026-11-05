@@ -51,6 +51,8 @@ describe("farm setup navigation", () => {
         <SetupGuide pathname="/assets" />
       </MemoryRouter>,
     );
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Show guide/ }));
     expect(
       screen.getByRole("list", { name: "Recommended setup order" }).children,
     ).toHaveLength(5);

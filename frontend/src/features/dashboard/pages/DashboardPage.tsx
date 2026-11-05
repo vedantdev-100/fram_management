@@ -1,3 +1,4 @@
+import { usePermissions } from "@/hooks/usePermissions";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -27,6 +28,7 @@ import {
 import { FieldDiagram } from "../components/FieldDiagram";
 import { number, shortDate } from "@/lib/format";
 export default function DashboardPage() {
+  const access = usePermissions();
   const user = useSession((s) => s.user);
   const farm = useWorkspace((s) => s.farm);
   const query = useOverview();
@@ -109,13 +111,15 @@ export default function DashboardPage() {
         title={`Good to see you, ${user?.full_name.split(" ")[0] || "there"}.`}
         description="Here’s how things are looking on your farm."
         actions={
-          <Link
-            className="button button-primary"
-            to="/events?tab=events&action=create_event"
-          >
-            <Plus size={17} />
-            Plan work
-          </Link>
+          access.has("events.event.plan") ? (
+            <Link
+              className="button button-primary"
+              to="/events?tab=events&action=create_event"
+            >
+              <Plus size={17} />
+              Plan work
+            </Link>
+          ) : undefined
         }
       />
       <div className="overview-note">
@@ -232,12 +236,14 @@ export default function DashboardPage() {
               description="Plan the next operation when you’re ready."
             />
           )}
-          <div className="panel-bottom-link">
-            <Link to="/events?tab=events&action=create_event">
-              <Plus size={16} />
-              Plan another operation
-            </Link>
-          </div>
+          {access.has("events.event.plan") && (
+            <div className="panel-bottom-link">
+              <Link to="/events?tab=events&action=create_event">
+                <Plus size={16} />
+                Plan another operation
+              </Link>
+            </div>
+          )}
         </Panel>
         <Panel
           title="Your fields"

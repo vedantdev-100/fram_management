@@ -1,3 +1,6 @@
+import { SecretCode } from "@/components/SecretCode";
+import { Select } from "@/components/forms/Select";
+import { usePermissions } from "@/hooks/usePermissions";
 import { ownedDrafts } from "@/offline/drafts";
 import { ResourceTabs } from "./ResourceTabs";
 import { useId } from "react";
@@ -54,10 +57,16 @@ export function ModuleWorkspace({
   renderDetail,
   toolbar,
 }: Props) {
+  const access = usePermissions();
   const tabId = useId();
   const [params, setParams] = useSearchParams();
   const resource =
     resources.find((r) => r.key === params.get("tab")) || resources[0];
+  const canCreate = resource.createCommand
+    ? access.canCommand(resource.createCommand)
+    : resource.editable && access.resourcePermission(resource.model, "create");
+  const canEdit =
+    resource.editable && access.resourcePermission(resource.model, "update");
   const [search, setSearch] = useState(params.get("search") || "");
   const [showCreate, setShowCreate] = useState(false);
   const [command, setCommand] = useState<CommandDefinition | null>(null);
@@ -65,14 +74,24 @@ export function ModuleWorkspace({
     params.get("record") || undefined,
   );
   const [edit, setEdit] = useState(false);
+  const [commandRecord, setCommandRecord] = useState<Row | undefined>();
   const [result, setResult] = useState<unknown>(null);
   useEffect(() => {
     const action = params.get("action");
-    if (action) setCommand(commands.find((c) => c.key === action) || null);
+    if (action)
+      setCommand(
+        access.canCommand(action)
+          ? commands.find((c) => c.key === action) || null
+          : null,
+      );
   }, [params, commands]);
   useEffect(() => {
     const draft = ownedDrafts().find((d) => d.id === params.get("draft"));
-    if (draft?.kind === "record" && draft.key === resource.key) {
+    if (
+      draft?.kind === "record" &&
+      draft.key === resource.key &&
+      (draft.recordId ? canEdit : canCreate)
+    ) {
       if (draft.recordId) {
         setDetailId(draft.recordId);
         setEdit(true);
@@ -100,7 +119,8 @@ export function ModuleWorkspace({
   );
   const current = detail.data;
   const relevant = commands.filter(
-    (c) => !c.resource || c.resource === resource.key,
+    (c) =>
+      (!c.resource || c.resource === resource.key) && access.canCommand(c.key),
   );
   return (
     <div className="page-enter" key={feature}>
@@ -111,7 +131,7 @@ export function ModuleWorkspace({
         actions={
           <>
             {relevant.length > 0 && (
-              <select
+              <Select
                 className="action-select"
                 aria-label="Choose an action"
                 value=""
@@ -127,9 +147,9 @@ export function ModuleWorkspace({
                     {c.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
-            {(resource.editable || resource.createCommand) && (
+            {canCreate && (
               <Button
                 onClick={() => {
                   if (resource.createCommand) {
@@ -228,7 +248,7 @@ export function ModuleWorkspace({
                   : "Records appear here as farm operations are completed."
             }
             action={
-              resource.editable && !search ? (
+              canCreate && !search ? (
                 <Button variant="secondary" onClick={() => setShowCreate(true)}>
                   <Plus size={16} />
                   Add the first record
@@ -263,7 +283,7 @@ export function ModuleWorkspace({
           history intact.
         </p>
       )}
-      {showCreate && (
+      {showCreate && canCreate && (
         <Modal
           title={`Add ${resource.title.toLowerCase().replace(/s$/, "")}`}
           onClose={() => {
@@ -314,7 +334,7 @@ export function ModuleWorkspace({
               <>
                 {!edit && renderDetail?.(current, resource.key) ? (
                   renderDetail(current, resource.key)
-                ) : edit ? (
+                ) : edit && canEdit ? (
                   <RecordForm
                     resource={resource}
                     record={current}
@@ -330,8 +350,30 @@ export function ModuleWorkspace({
                 ) : (
                   <>
                     <RecordDetails record={current} resource={resource} />
+                    {resource.key === "members" &&
+                      access.canCommand("change_member") && (
+                        <div className="form-footer">
+                          {["change_member", "remove_member"].map((key) => (
+                            <Button
+                              key={key}
+                              variant="secondary"
+                              onClick={() => {
+                                setCommandRecord(current);
+                                setDetailId(undefined);
+                                setCommand(
+                                  commands.find((c) => c.key === key) || null,
+                                );
+                              }}
+                            >
+                              {key === "change_member"
+                                ? "Edit role / access"
+                                : "Remove from farm"}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     <div className="form-footer">
-                      {resource.editable &&
+                      {canEdit &&
                         !resource.versioned &&
                         current.farm !== null && (
                           <Button
@@ -351,24 +393,28 @@ export function ModuleWorkspace({
           )}
         </Modal>
       )}
-      {command && (
+      {command && access.canCommand(command.key) && (
         <Modal
           title={command.label}
           onClose={() => {
             setCommand(null);
+            setCommandRecord(undefined);
             clearDraftRoute();
           }}
           wide
         >
           <CommandForm
             command={command}
+            record={commandRecord}
             api={api}
             onClose={() => {
               setCommand(null);
+              setCommandRecord(undefined);
               clearDraftRoute();
             }}
             onResult={(data) => {
               setCommand(null);
+              setCommandRecord(undefined);
               clearDraftRoute();
               setResult(data);
             }}
@@ -397,7 +443,7 @@ function Result({ value }: { value: unknown }) {
         </p>
         <label className="field">
           Invitation token
-          <input readOnly value={value[1]} onFocus={(e) => e.target.select()} />
+          <SecretCode value={value[1]} />
         </label>
       </div>
     );

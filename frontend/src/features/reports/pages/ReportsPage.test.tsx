@@ -6,6 +6,9 @@ import { useWorkspace } from "@/stores/workspace";
 vi.mock("../hooks/useReport", () => ({
   useReport: () => ({ data: [], isLoading: false, isError: false }),
 }));
+vi.mock("@/hooks/usePermissions", () => ({
+  usePermissions: () => ({ has: () => true }),
+}));
 afterEach(cleanup);
 describe("Farm insights tabs", () => {
   it("uses shared tabs and changes the labelled report panel with keyboard navigation", async () => {

@@ -1,3 +1,4 @@
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   DetailSection,
   DetailTable,
@@ -14,6 +15,9 @@ import { ReferenceLabel } from "@/components/forms/ReferencePicker";
 import { money, dateTime, humanize } from "@/lib/format";
 import { notify } from "@/stores/toasts";
 export function EventDetail({ record }: { record: Row }) {
+  const access = usePermissions();
+  const canRecord =
+    access.has("events.event.submit") || access.has("events.event.confirm");
   const farm = useWorkspace((s) => s.farm)!;
   const [actuals, setActuals] = useState<Record<string, string>>({});
   const [cancel, setCancel] = useState(false);
@@ -119,7 +123,7 @@ export function EventDetail({ record }: { record: Row }) {
                       {String(line.planned_qty ?? "—")}
                     </td>
                     <td>
-                      {state === "in_progress" ? (
+                      {state === "in_progress" && canRecord ? (
                         <input
                           aria-label={`Actual quantity for resource ${index + 1}`}
                           type="number"
@@ -171,31 +175,34 @@ export function EventDetail({ record }: { record: Row }) {
       {mutation.error && (
         <>
           <ErrorBox error={mutation.error} />
-          <details className="advanced">
-            <summary>Authorised safety override</summary>
-            <label className="field">
-              Override reason
-              <textarea
-                value={override}
-                onChange={(e) => setOverride(e.target.value)}
-                placeholder="Only authorised members may override a blocking safety check."
-              />
-            </label>
-          </details>
+          {access.has("compliance.compliance.override") && (
+            <details className="advanced">
+              <summary>Authorised safety override</summary>
+              <label className="field">
+                Override reason
+                <textarea
+                  value={override}
+                  onChange={(e) => setOverride(e.target.value)}
+                  placeholder="Only authorised members may override a blocking safety check."
+                />
+              </label>
+            </details>
+          )}
         </>
       )}
       <footer className="form-footer">
-        {["draft", "planned", "in_progress"].includes(state) && (
-          <Button
-            variant="ghost"
-            onClick={() => setCancel(true)}
-            disabled={mutation.isPending}
-          >
-            <XCircle size={16} />
-            Cancel work
-          </Button>
-        )}
-        {state === "draft" && (
+        {["draft", "planned", "in_progress"].includes(state) &&
+          access.has("events.event.cancel") && (
+            <Button
+              variant="ghost"
+              onClick={() => setCancel(true)}
+              disabled={mutation.isPending}
+            >
+              <XCircle size={16} />
+              Cancel work
+            </Button>
+          )}
+        {state === "draft" && access.has("events.event.plan") && (
           <Button
             loading={mutation.isPending}
             onClick={() => mutation.mutate("plan_event")}
@@ -204,7 +211,7 @@ export function EventDetail({ record }: { record: Row }) {
             Commit plan
           </Button>
         )}
-        {state === "planned" && (
+        {state === "planned" && access.has("events.event.start") && (
           <Button
             loading={mutation.isPending}
             onClick={() => mutation.mutate("start_event")}
@@ -215,21 +222,25 @@ export function EventDetail({ record }: { record: Row }) {
         )}
         {state === "in_progress" && (
           <>
-            <Button
-              variant="secondary"
-              loading={mutation.isPending}
-              onClick={() => mutation.mutate("submit_event")}
-            >
-              <Send size={16} />
-              Submit actuals
-            </Button>
-            <Button
-              loading={mutation.isPending}
-              onClick={() => mutation.mutate("confirm_event")}
-            >
-              <Check size={16} />
-              Confirm completed work
-            </Button>
+            {access.has("events.event.submit") && (
+              <Button
+                variant="secondary"
+                loading={mutation.isPending}
+                onClick={() => mutation.mutate("submit_event")}
+              >
+                <Send size={16} />
+                Submit actuals
+              </Button>
+            )}
+            {access.has("events.event.confirm") && (
+              <Button
+                loading={mutation.isPending}
+                onClick={() => mutation.mutate("confirm_event")}
+              >
+                <Check size={16} />
+                Confirm completed work
+              </Button>
+            )}
           </>
         )}
         {state === "done" && (

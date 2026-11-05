@@ -1,3 +1,4 @@
+import { Select } from "@/components/forms/Select";
 import { useQuery } from "@tanstack/react-query";
 import { allRecords } from "@/api/resources";
 import { useWorkspace } from "@/stores/workspace";
@@ -29,7 +30,7 @@ export function ReferencePicker({
   const q = useOptions(resource);
   return (
     <div>
-      <select
+      <Select
         id={id}
         value={value || ""}
         required={required}
@@ -47,7 +48,7 @@ export function ReferencePicker({
             {r.farm === null ? " · shared" : ""}
           </option>
         ))}
-      </select>
+      </Select>
       {q.isError && (
         <p className="field-error">
           Choices could not be loaded. Check your access to this module.

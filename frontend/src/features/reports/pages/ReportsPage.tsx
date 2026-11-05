@@ -1,3 +1,4 @@
+import { usePermissions } from "@/hooks/usePermissions";
 import { ResourceTabs } from "@/components/workspace/ResourceTabs";
 import { useId } from "react";
 import { useState } from "react";
@@ -29,6 +30,7 @@ const reportTabs = reports.map((report) => ({
   title: report.label,
 }));
 export default function ReportsPage() {
+  const access = usePermissions();
   const tabId = useId();
   const [name, setName] = useState<ReportName>("crop-cycle-profit-loss");
   const [downloading, setDownloading] = useState(false);
@@ -41,23 +43,25 @@ export default function ReportsPage() {
         title="Farm insights"
         description="Review the records behind your decisions."
         actions={
-          <Button
-            variant="secondary"
-            loading={downloading}
-            onClick={async () => {
-              setDownloading(true);
-              try {
-                await reportApi.download(farm.id, name);
-              } catch (e) {
-                notify((e as Error).message, "error");
-              } finally {
-                setDownloading(false);
-              }
-            }}
-          >
-            <Download size={17} />
-            Export CSV
-          </Button>
+          access.has("reporting.report.export") ? (
+            <Button
+              variant="secondary"
+              loading={downloading}
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  await reportApi.download(farm.id, name);
+                } catch (e) {
+                  notify((e as Error).message, "error");
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+            >
+              <Download size={17} />
+              Export CSV
+            </Button>
+          ) : undefined
         }
       />
       <ResourceTabs

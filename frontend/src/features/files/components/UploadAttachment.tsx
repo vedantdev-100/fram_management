@@ -1,3 +1,5 @@
+import { Select } from "@/components/forms/Select";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useState } from "react";
 import { Upload, FileUp } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -15,6 +17,7 @@ const targets = [
   { resource: "entries", model: "ledger.LedgerEntry", label: "Money entry" },
 ];
 export function UploadAttachment() {
+  const access = usePermissions();
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [target, setTarget] = useState(targets[0]);
@@ -44,6 +47,7 @@ export function UploadAttachment() {
       notify("Document attached");
     },
   });
+  if (!access.has("files.attachment.create")) return null;
   return (
     <>
       <div className="feature-toolbar">
@@ -91,7 +95,7 @@ export function UploadAttachment() {
             <div className="form-grid">
               <label className="field">
                 Attach to
-                <select
+                <Select
                   value={target.resource}
                   onChange={(e) => {
                     setTarget(
@@ -105,15 +109,15 @@ export function UploadAttachment() {
                       {t.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="field">
                 Kind
-                <select value={kind} onChange={(e) => setKind(e.target.value)}>
+                <Select value={kind} onChange={(e) => setKind(e.target.value)}>
                   {["photo", "bill", "certificate", "other"].map((k) => (
                     <option key={k}>{k}</option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>
             <label className="field">

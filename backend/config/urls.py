@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.identity.views import (
     RegisterView,
+    FarmAccessView,
     MeView,
     LogoutView,
     FarmsView,
@@ -30,6 +31,7 @@ for name, label in RESOURCES.items():
     router.register(name, resource_view(name, label), basename=name)
 
 urlpatterns = [
+    path("api/v1/farms/<uuid:farm_id>/access/", FarmAccessView.as_view()),
     path("api/v1/farms/<uuid:farm_id>/sync/", SyncView.as_view()),
     path("api/v1/farms/<uuid:farm_id>/boundaries/import-preview/", BoundaryImportView.as_view()),
     path("api/v1/farms/<uuid:farm_id>/boundaries/export/", BoundaryExportView.as_view()),

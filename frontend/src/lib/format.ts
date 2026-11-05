@@ -52,7 +52,8 @@ export const localDateTime = (value: unknown) => {
 };
 export const labelFor = (row: Record<string, unknown>) =>
   String(
-    row.name ||
+    row.member_name ||
+      row.name ||
       row.title ||
       row.original_name ||
       row.code ||

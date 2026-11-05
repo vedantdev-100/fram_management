@@ -35,7 +35,7 @@ export const resources: ResourceDefinition[] = [
     model: "identity.Membership",
     editable: false,
     versioned: false,
-    columns: ["user", "role", "status", "joined_at"],
+    columns: ["member_name", "member_email", "role", "status", "joined_at"],
     fields: [
       {
         name: "status",
@@ -88,7 +88,7 @@ export const resources: ResourceDefinition[] = [
     model: "identity.Invitation",
     editable: false,
     versioned: false,
-    columns: ["created_at"],
+    columns: ["email", "role", "expires_at", "accepted_at", "invitation_code"],
     fields: [
       {
         name: "email",

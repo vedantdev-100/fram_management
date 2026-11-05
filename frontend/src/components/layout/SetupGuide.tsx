@@ -6,7 +6,7 @@ import { setupGuides } from "@/components/setup/guides";
 
 export function SetupGuide({ pathname }: { pathname: string }) {
   const guide = setupGuides[pathname];
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   if (!guide) return null;
   return (
     <section className="setup-guide" aria-label="Farm setup guide">

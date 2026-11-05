@@ -1,43 +1,84 @@
-# Fieldwork — offline saving mode
+# Fieldwork: invitation onboarding and farm permissions
+
+This is a source update for the Django backend and existing React/TypeScript/Tailwind frontend from this conversation, not a replacement project. Install both sides. The frontend folder includes the preceding theme, detail modal, field help, sidebar, guide/tab motion and offline-draft changes as well as this update.
+
+## What changes
+
+- Signup offers **Join a farm** (default) and **Create my own farm**.
+- Joining requires the invitation email, code, name, password and password confirmation. Role and farm come exclusively from the server-side invitation.
+- Account creation and invitation acceptance commit together. Invalid, expired, used or wrong-email codes leave no new account behind.
+- After successful signup, the worker signs in and opens their assigned farm. Farm creation is optional, never mandatory for a worker.
+- Users who already have an account sign in and choose **Join with an invitation** in the workspace picker. Users with no farm see explicit join/create choices.
+- Navigation, page access and create/edit/command controls follow effective backend permissions. A worker can start/submit assigned work but cannot plan or confirm it under the existing seeded Worker role. The API remains authoritative.
+- The profile dropdown shows the current farm role. Owner setup guides are hidden from ordinary workers.
+- Existing active roles cannot be replaced by accepting another invitation, and suspended memberships cannot be reactivated through an invitation.
+- If acceptance succeeds but loading the farm list fails, retry refreshes farms without resubmitting the consumed code.
 
 ## Install locally on Windows
 
-This cumulative frontend patch includes all previous UI updates in this conversation.
+1. Stop Django and Vite. Back up your existing files or commit them.
+2. Copy the contents of `backend` into your existing backend folder, preserving paths. Copy the contents of `frontend` into your existing frontend root, preserving paths. Do not create an extra nested `frontend/frontend` folder.
+3. If you customized `config/urls.py`, merge just these additions instead of replacing your custom routes:
 
-1. Stop Vite and back up your frontend folder or commit your changes.
-2. Extract this ZIP to a separate directory.
-3. Merge `src/`, `public/` and `index.html` from `frontend-update/` into your existing frontend root. Replace included files; preserve `.env` and other files. Merge any local customizations to included files.
-4. Restart with `npm run dev`.
+```python
+# Add to the existing apps.identity.views import:
+FarmAccessView,
 
-No new dependency, backend endpoint, database migration or environment change is needed.
+# Add to urlpatterns, before the farm router include:
+path("api/v1/farms/<uuid:farm_id>/access/", FarmAccessView.as_view()),
+```
 
-## How to collect and recover data
+No new packages, models or migrations are introduced. Keep your existing OSGeo4W/GDAL/GEOS/PROJ configuration and `.env`.
 
-1. Sign in, select your farm and open the app and required forms while connected. Load the related units/assets/crop choices you will need.
-2. If the browser goes offline, shared configuration and Actions forms enter Offline saving mode. Edits are automatically copied to local device storage. The form also has Save offline now and Download this draft buttons. Ordinary submissions are not sent while the browser reports offline.
-3. If the browser reports online but a request fails with a network/connection error, that form's current values are also saved as a local draft. Validation, permission and server HTTP errors are not treated as disconnections.
-4. To view saved data, close the form and click Drafts/the cloud icon in the top bar, or open Offline sync → Saved offline drafts. Review, download JSON, delete a local draft, or import an earlier Fieldwork draft backup.
-5. Once the server is reachable, choose Resume on a draft. It opens the original form with the saved values. Review the record and submit normally; a successful server response removes that form's local draft. There is no automatic resend on reconnect.
+From your backend root in PowerShell:
 
-Backups are scoped by signed-in user ID, farm ID and live/preview mode. Reuse the same frontend URL when returning, or download/import a backup to move between browser origins/devices. Data is stored in browser local storage, not a separate server or encrypted vault. Clearing site data or changing browser profiles removes local copies. Download a backup if you need an independent copy.
+```powershell
+.\.venv\Scripts\python.exe manage.py check
+.\.venv\Scripts\python.exe manage.py test apps.identity.test_invitation_onboarding
+.\.venv\Scripts\python.exe manage.py runserver 0.0.0.0:8000
+```
 
-A storage quota/privacy-mode failure is shown explicitly. Download this draft can still create a JSON file directly from the open form even if local persistence fails.
+Use the explicit venv Python path so OSGeo4W's Python does not take precedence. The Django test command needs permission to create/use its test database and your existing PostGIS setup.
 
-## Important scope
+From your existing frontend root, using its installed dependencies:
 
-- Supported: shared record create/edit forms (for example blocks, assets and stock items), and the Actions forms (for example planned work, observations or custom roles).
-- Not covered: binary file uploads, GeoJSON import/apply tools, sign-in/registration, farm creation, and the separate work-detail Start/Submit/Confirm buttons. They still require a server connection. New related records must be created and synced before a form can reference their server IDs.
-- This does not add a service worker or offline app installation. Open the app and relevant forms before going to the field. An initial launch or uncached reload with no frontend/backend connection is not supported. Persisted drafts remain available after reconnecting, loading the app and signing in again.
-- Internet is distinct from server connectivity: if Django is reachable over local Wi-Fi, local online submissions can still work without internet. Network/CORS/server-unreachable failures activate backup mode; the UI does not diagnose them as proven internet outages.
-- A request whose response was lost might already have been saved on the server. Such drafts retain a check-before-retry notice. They are not automatically replayed. Verify existing records before resubmitting a create/action with no server idempotency guarantee.
-- Existing client UUIDs are retained for compatible action retries. Edited records retain the original version so the backend can reject stale edits instead of overwriting someone else's changes. If a conflict occurs, compare against the current record and re-enter reviewed values in a fresh edit.
+```powershell
+npm run build
+npm test
+npm run dev
+```
 
-## Backup format and existing event batches
+Install the backend before testing this frontend. It now requests `/api/v1/farms/<farm_id>/access/`; an old backend without that route will display an access-loading error. Your existing Vite API URL/proxy and Django CORS settings still apply.
 
-Download JSON exports `fieldwork.offline-drafts.v1`, containing local form values plus the context and return page. Import this file in Saved offline drafts. The importer accepts 1–100 drafts up to 5 MB and requires the same user, farm and workspace mode. The original event-batch importer remains separate: it expects backend-compatible event payloads in an `events` array. Do not upload a draft backup to Submit an offline event batch.
+## Admin and worker workflow
 
-There is no new backend sync or automatic batch replay. Resume uses existing API validation and permissions.
+1. The farm owner signs in and selects their farm.
+2. In Settings, inspect the farm's Roles and choose the seeded **Worker** role, or create a custom role and configure its permissions.
+3. Choose the **Invite** action, enter the worker's exact email and the role. Share the returned token privately as the invitation code. Existing invitations expire after seven days and are single use. This update does not automatically send email.
+4. The new worker chooses **Create an account → Join a farm**, supplies the same email and code, and creates their password.
+5. After signup succeeds, they sign in. Their active membership selects the existing farm automatically.
+6. For someone already registered, use sign-in followed by the workspace picker's **Join with an invitation** action; do not register a duplicate account.
+7. To change an existing member's role or restore a suspended member, use the administrator's **Change member** action rather than another invitation.
 
-## Verification
+Existing accounts created before this update also use step 6. Creating an owner account does not grant access to another person's farm; it only permits setting up an independent farm through the existing API. Farm roles are separate from Django `is_staff`/`is_superuser`.
 
-Production build, 45 tests, feature-boundary checks and API-contract checks passed. Offline behavior was tested using simulated browser connectivity and native local storage in the test runtime, not a physical field network. Tests cover offline autosave, no online backup for successful/validation/permission requests, connection-failure backups, no auto-submit on reconnect, successful cleanup, owner/farm/mode isolation, original versions and UUIDs, JSON download, atomic import and storage failures. No live Windows backend or physical offline device test was performed.
+## Worker assignment and visibility
+
+Membership gives farm access. For the backend's existing worker event filters, also link the worker's personnel asset/PersonDetail to the user's account and assign that operator asset to the appropriate work. A worker login alone does not assign events. Existing block access scopes and object-level permission checks still apply. Custom roles need the relevant view permissions as well as action permissions.
+
+The server is responsible for authorization even if a user modifies browser code. The frontend's permission response is cached for 30 seconds and refreshed on window focus; permissions are checked again by the backend on requests. Cached controls can remain visible temporarily after an administrator changes access, but cannot override the server.
+
+## Boundaries
+
+Codes are bearer credentials tied to an email string. This project does not currently verify mailbox ownership, so matching an email and possessing a privately shared code is not independent email verification. Email delivery/verification and invitation revocation UI are separate enhancements.
+
+Offline drafts remain local drafts for the signed-in user/farm. Joining and registration require a connection; reconnecting never automatically submits saved work. The demo preview deliberately shows all sample capabilities and is not a test of real worker permissions.
+
+## Validation
+
+- 55 frontend tests pass, including signup modes, farm selection, permission checks and safe invitation retry.
+- TypeScript and production build pass; module-boundary and API-contract checks pass.
+- 13 isolated Django identity/API tests pass against actual identity models/views/services and JWT login.
+- Signup layout inspected in the browser.
+
+The isolated backend run used SQLite. PostgreSQL row-lock concurrency, the complete PostGIS migration graph, and integration on your Windows machine still need the local checks above. See `API_EXAMPLES.md` for request bodies. `FILES.txt` lists every supplied file. No `.env`, credentials, node_modules or database content is included.

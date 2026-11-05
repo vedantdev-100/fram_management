@@ -34,6 +34,9 @@ export function CommandForm({
       : command.initial),
     ...(record
       ? {
+          member_id: record.id,
+          role_id: record.role,
+          status: record.status,
           event_id: record.id,
           block_id: record.id,
           cycle_id: record.id,
@@ -100,6 +103,13 @@ export function CommandForm({
             ["ledger_transfer", "duplicate_event"].includes(command.key)
           )
             payload.client_uuid = values.client_uuid;
+          if (
+            command.key === "remove_member" &&
+            !window.confirm(
+              "Remove this member’s access to this farm? Their account and work history will be kept.",
+            )
+          )
+            return;
           mutation.mutate(payload);
         } catch {
           setLocalError(

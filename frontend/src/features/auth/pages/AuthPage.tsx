@@ -12,6 +12,11 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [accountMode, setAccountMode] = useState<"owner" | "invited">(
+    "invited",
+  );
+  const [invitation, setInvitation] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -30,9 +35,33 @@ export default function AuthPage() {
           "If the account exists, password reset instructions have been sent.",
         );
       } else {
-        if (mode === "register")
-          await registration.mutateAsync({ email, password, full_name: name });
-        await login.mutateAsync({ email, password });
+        if (mode === "register") {
+          if (password !== confirm)
+            throw new Error("The passwords do not match.");
+          await registration.mutateAsync({
+            email: email.trim().toLowerCase(),
+            password,
+            full_name: name.trim(),
+            account_mode: accountMode,
+            ...(accountMode === "invited"
+              ? { invitation_code: invitation.trim() }
+              : {}),
+          });
+          setMode("login");
+          setPassword("");
+          setConfirm("");
+          setInvitation("");
+          setNotice(
+            accountMode === "invited"
+              ? "Your account was created and the farm invitation accepted. Sign in with your new password."
+              : "Your account was created. Sign in to create your farm or join an existing one.",
+          );
+          return;
+        }
+        await login.mutateAsync({
+          email: email.trim().toLowerCase(),
+          password,
+        });
       }
     } catch (e) {
       setError(e);
@@ -102,10 +131,44 @@ export default function AuthPage() {
             {mode === "login"
               ? "Sign in and pick up where you left off."
               : mode === "register"
-                ? "Create your account. You can set up a farm next."
+                ? "Join your farm team with an invitation, or create an account to set up your own farm."
                 : "Enter the email address linked to your account."}
           </p>
           <form onSubmit={submit}>
+            {mode === "register" && (
+              <fieldset className="signup-choice">
+                <legend>How will you use Fieldwork?</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="account-mode"
+                    value="invited"
+                    checked={accountMode === "invited"}
+                    onChange={() => setAccountMode("invited")}
+                  />
+                  <span>
+                    <strong>Join a farm</strong>
+                    <small>
+                      I have an invitation from my farm administrator.
+                    </small>
+                  </span>
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="account-mode"
+                    value="owner"
+                    checked={accountMode === "owner"}
+                    onChange={() => setAccountMode("owner")}
+                  />
+                  <span>
+                    <strong>Create my own farm</strong>
+                    <small>I will set up a separate farm workspace.</small>
+                  </span>
+                </label>
+              </fieldset>
+            )}
+
             {mode === "register" && (
               <label className="field">
                 Full name
@@ -128,6 +191,24 @@ export default function AuthPage() {
                 autoComplete="email"
               />
             </label>
+            {mode === "register" && accountMode === "invited" && (
+              <label className="field">
+                Invitation code
+                <input
+                  required
+                  maxLength={512}
+                  value={invitation}
+                  onChange={(e) => setInvitation(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <small className="field-help">
+                  Use the exact code from your administrator and the same email
+                  address they invited. Your farm and role come from that
+                  invitation.
+                </small>
+              </label>
+            )}
             {mode !== "reset" && (
               <label className="field">
                 Password
@@ -152,6 +233,19 @@ export default function AuthPage() {
                 </div>
               </label>
             )}
+            {mode === "register" && (
+              <label className="field">
+                Confirm password
+                <input
+                  type={show ? "text" : "password"}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                />
+              </label>
+            )}
             {mode === "login" && (
               <button
                 type="button"
@@ -173,7 +267,9 @@ export default function AuthPage() {
               {mode === "login"
                 ? "Sign in"
                 : mode === "register"
-                  ? "Create account"
+                  ? accountMode === "invited"
+                    ? "Create account & join farm"
+                    : "Create account"
                   : "Send reset instructions"}
               <ArrowRight size={17} />
             </Button>

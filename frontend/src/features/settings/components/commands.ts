@@ -3,6 +3,23 @@ import { useWorkspace } from "@/stores/workspace";
 import type { CommandDefinition } from "@/types";
 export const commands: CommandDefinition[] = [
   {
+    key: "remove_member",
+    label: "Remove member from farm",
+    description:
+      "Revokes this member’s farm access. Their account and work history are preserved. The final active owner cannot be removed.",
+    resource: "members",
+    fields: [
+      {
+        name: "member_id",
+        label: "Member",
+        type: "reference",
+        resource: "members",
+        required: true,
+      },
+    ],
+    build: (values) => ({ ...values }),
+  },
+  {
     key: "set_role_permissions",
     label: "Set role permissions",
     description:

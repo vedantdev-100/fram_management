@@ -1,3 +1,4 @@
+import { SecretCode } from "@/components/SecretCode";
 import { InfoHint } from "@/components/InfoHint";
 import { knownFieldHelp } from "@/lib/fieldHelp";
 import type { ReactNode } from "react";
@@ -34,6 +35,7 @@ export function DetailValue({
   relation?: string;
   depth?: number;
 }) {
+  if (name === "invitation_code") return <SecretCode value={value} />;
   if (value == null || value === "")
     return <span className="muted">Not provided</span>;
   if (relation)
@@ -213,7 +215,10 @@ export function RecordDetails({
 }) {
   const entries = Object.entries(record);
   const visible = entries.filter(
-    ([name]) => !technical.has(name) && name !== "status",
+    ([name]) =>
+      !technical.has(name) &&
+      name !== "status" &&
+      !(resource?.key === "members" && name === "user"),
   );
   const overview = visible.filter(
     ([name, value]) =>

@@ -1,3 +1,4 @@
+import { SecretCode } from "@/components/SecretCode";
 import { ChevronRight } from "lucide-react";
 import type { Row, ResourceDefinition } from "@/types";
 import { Badge } from "@/components/ui";
@@ -14,6 +15,9 @@ export function Value({
   relation?: string;
 }) {
   const farm = useWorkspace((s) => s.farm);
+  if (column === "invitation_code") return <SecretCode value={value} />;
+  if (["member_name", "member_email", "email"].includes(column))
+    return <>{String(value ?? "—")}</>;
   if (value === null || value === undefined || value === "")
     return <span className="muted">—</span>;
   if (relation) return <ReferenceLabel resource={relation} id={value} />;
@@ -114,12 +118,12 @@ export function DataTable({
       </div>
       <div className="mobile-records">
         {rows.map((row) => (
-          <button
-            className="mobile-record"
-            key={row.id}
-            onClick={() => onSelect(row)}
-          >
-            <div className="mobile-record-title">
+          <article className="mobile-record" key={row.id}>
+            <button
+              type="button"
+              className="mobile-record-title"
+              onClick={() => onSelect(row)}
+            >
               <strong>
                 <Value
                   column={columns[0]}
@@ -128,18 +132,20 @@ export function DataTable({
                 />
               </strong>
               <ChevronRight size={17} />
-            </div>
-            {columns.slice(1, 4).map((c) => (
-              <div className="mobile-record-line" key={c}>
-                <span>{humanize(c)}</span>
-                <Value
-                  column={c}
-                  value={row[c]}
-                  relation={resource.relations[c]}
-                />
-              </div>
-            ))}
-          </button>
+            </button>
+            {columns
+              .slice(1, resource.key === "invitations" ? undefined : 4)
+              .map((c) => (
+                <div className="mobile-record-line" key={c}>
+                  <span>{humanize(c)}</span>
+                  <Value
+                    column={c}
+                    value={row[c]}
+                    relation={resource.relations[c]}
+                  />
+                </div>
+              ))}
+          </article>
         ))}
       </div>
     </>

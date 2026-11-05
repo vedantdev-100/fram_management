@@ -1,8 +1,9 @@
 import secrets
+from django.utils.crypto import salted_hmac
 import hashlib
 from datetime import timedelta
 from django.utils import timezone
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.exceptions import ValidationError
 from apps.core.commands import command, save_row
@@ -95,14 +96,22 @@ def create_farm(user, data):
 
 @transaction.atomic
 def register(data):
-    data["email"] = data["email"].lower()
+    data = dict(data)
+    data["email"] = data["email"].strip().lower()
     password = data.pop("password")
     user = User(**data)
     validate_password(password, user)
     user.set_password(password)
     user.full_clean()
-    user.save()
+    try:
+        user.save()
+    except IntegrityError as exc:
+        raise ValidationError({"email": "An account with this email already exists. Sign in and accept the invitation instead."}) from exc
     return user
+
+
+def invitation_code(row):
+    return salted_hmac("farm-invitation-v2", str(row.pk), algorithm="sha256").hexdigest()
 
 
 @command("identity.invitation.create")
@@ -110,22 +119,33 @@ def invite(ctx, email, role_id):
     role = Role.objects.get(pk=role_id, farm=ctx.farm)
     if role.code == "owner":
         ctx.require("identity.farm.manage")
-    token = secrets.token_urlsafe(32)
-    row = Invitation.objects.create(
-        farm=ctx.farm,
-        email=email.lower(),
-        role=role,
-        token_hash=hashlib.sha256(token.encode()).hexdigest(),
-        expires_at=timezone.now() + timedelta(days=7),
-        invited_by=ctx.user,
+    if not set(RolePermission.objects.filter(role=role).values_list("permission__code", flat=True)).issubset(ctx.permissions):
+        raise ValidationError("You cannot invite someone with permissions you do not hold.")
+    row = Invitation(
+        farm=ctx.farm, email=email.strip().lower(), role=role,
+        expires_at=timezone.now() + timedelta(days=7), invited_by=ctx.user,
     )
+    token = invitation_code(row)
+    row.token_hash = hashlib.sha256(token.encode()).hexdigest()
+    row.save()
     return row, token
 
 
 @transaction.atomic
+def register_with_invitation(data, token):
+    # Account creation and membership acceptance are one transaction.
+    user = register(data)
+    invitation = accept_invitation(user, token)
+    return user, invitation
+
+
+@transaction.atomic
 def accept_invitation(user, token):
+    token = str(token).strip()
+    if not token or len(token) > 512:
+        raise ValidationError({"invitation_code": "Invalid, expired or already-used invitation."})
     row = (
-        Invitation.objects.select_for_update()
+        Invitation.objects.select_for_update(of=("self",))
         .filter(
             token_hash=hashlib.sha256(token.encode()).hexdigest(),
             accepted_at=None,
@@ -133,26 +153,53 @@ def accept_invitation(user, token):
         )
         .first()
     )
-    if not row or row.email.lower() != user.email.lower():
-        raise ValidationError("Invalid invitation.")
-    Membership.objects.update_or_create(
-        farm=row.farm, user=user, defaults={"role": row.role, "status": "active", "joined_at": timezone.now()}
-    )
+    if not row or row.email.strip().lower() != user.email.strip().lower():
+        raise ValidationError({"invitation_code": "Invalid, expired or already-used invitation for this email."})
+    # Serialize joins into a farm, including two invites for the same user.
+    farm = Farm.objects.select_for_update().get(pk=row.farm_id)
+    if not farm.is_active or farm.pending_deletion_at:
+        raise ValidationError({"invitation_code": "This farm is not available for joining."})
+    role = Role.objects.select_for_update().filter(pk=row.role_id, farm=farm).first()
+    if role is None:
+        raise ValidationError({"invitation_code": "This invitation has no valid farm role."})
+    member = Membership.objects.select_for_update().filter(farm=farm, user=user).first()
+    if member and member.status == "suspended":
+        raise ValidationError("Your membership is suspended. Ask a farm administrator to restore access.")
+    if member and member.status == "active" and member.role_id != role.pk:
+        raise ValidationError("You already belong to this farm with another role. An administrator must change your role separately.")
+    if member is None:
+        Membership.objects.create(farm=farm, user=user, role=role, status="active", joined_at=timezone.now())
+    elif member.status != "active":
+        member.role = role
+        member.status = "active"
+        member.joined_at = timezone.now()
+        member.save(update_fields=["role", "status", "joined_at"])
     row.accepted_at = timezone.now()
-    row.save()
+    row.save(update_fields=["accepted_at"])
     return row
 
 
 @command("identity.member.manage")
 def change_member(ctx, member_id, role_id=None, status=None):
+    Farm.objects.select_for_update().get(pk=ctx.farm.pk)
     member = Membership.objects.select_for_update().get(id=member_id, farm=ctx.farm)
+    if status not in (None, "active", "suspended", "invited"):
+        raise ValidationError("Invalid membership status.")
     role = Role.objects.get(id=role_id, farm=ctx.farm) if role_id else member.role
     if member.role.code == "owner" or role.code == "owner":
         ctx.require("identity.farm.manage")
-    if member.role.code == "owner" and (role.code != "owner" or status == "suspended"):
+    if not set(RolePermission.objects.filter(role=role).values_list("permission__code", flat=True)).issubset(ctx.permissions):
+        raise ValidationError("You cannot assign permissions you do not hold.")
+    if member.status == "active" and member.role.code == "owner" and (role.code != "owner" or status in ("suspended", "invited")):
         if Membership.objects.filter(farm=ctx.farm, role__code="owner", status="active").count() <= 1:
             raise ValidationError("The final active owner cannot be removed.")
     member.role = role
     if status:
         member.status = status
     return save_row(member)
+
+
+@command("identity.member.manage")
+def remove_member(ctx, member_id):
+    # Suspend rather than delete: references and work history remain intact.
+    return change_member(ctx, member_id, status="suspended")

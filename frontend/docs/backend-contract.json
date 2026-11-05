@@ -165,6 +165,7 @@
     "adopt_scenario",
     "invite",
     "change_member",
-    "mark_notification_read"
+    "mark_notification_read",
+    "remove_member"
   ]
 }

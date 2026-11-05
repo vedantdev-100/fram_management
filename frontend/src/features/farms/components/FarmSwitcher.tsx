@@ -1,3 +1,5 @@
+import { usePermissions } from "@/hooks/usePermissions";
+import { JoinFarmForm } from "./JoinFarmForm";
 import { useEffect, useRef, useState } from "react";
 import {
   Plus,
@@ -15,6 +17,8 @@ import { FarmForm } from "./FarmForm";
 import type { Farm } from "@/types";
 export function FarmSwitcher() {
   const q = useFarms();
+  const access = usePermissions();
+  const [join, setJoin] = useState(false);
   const farm = useWorkspace((s) => s.farm);
   const [create, setCreate] = useState(false);
   const [open, setOpen] = useState(false);
@@ -163,15 +167,35 @@ export function FarmSwitcher() {
               className="workspace-create"
               onClick={() => {
                 setOpen(false);
-                setCreate(true);
+                setJoin(true);
               }}
             >
               <Plus size={17} />
-              <span>Create another farm</span>
+              <span>Join with an invitation</span>
             </button>
+            {access.has("identity.farm.create") && (
+              <>
+                {" "}
+                <button
+                  className="workspace-create"
+                  onClick={() => {
+                    setOpen(false);
+                    setCreate(true);
+                  }}
+                >
+                  <Plus size={17} />
+                  <span>Create another farm</span>
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
+      {join && (
+        <Modal title="Join another farm" onClose={() => setJoin(false)}>
+          <JoinFarmForm onDone={() => setJoin(false)} />
+        </Modal>
+      )}
       {create && (
         <Modal title="Create another farm" onClose={() => setCreate(false)}>
           <FarmForm
