@@ -2,8 +2,15 @@ from pathlib import Path
 from datetime import timedelta
 import environ
 
+import os
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 env = environ.Env(DEBUG=(bool, False))
+
+if os.name == "nt":
+    os.environ["PROJ_DATA"] = env("PROJ_DATA")
+    os.environ["PROJ_LIB"] = env("PROJ_LIB")
+    
 environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
